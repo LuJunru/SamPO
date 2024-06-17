@@ -849,12 +849,52 @@ class DPOTrainer(Trainer):
             The losses tensor contains the DPO loss for each example in the batch.
             The chosen_rewards and rejected_rewards tensors contain the rewards for the chosen and rejected responses, respectively.
         """
-        pi_logratios = policy_chosen_logps - policy_rejected_logps
-        ref_logratios = reference_chosen_logps - reference_rejected_logps
+        cho_logratios = policy_chosen_logps - reference_chosen_logps
+        rej_logratios = policy_rejected_logps - reference_rejected_logps
 
-        pi_logratios = pi_logratios.to(self.accelerator.device)
-        ref_logratios = ref_logratios.to(self.accelerator.device)
-        logits = pi_logratios - ref_logratios
+        if self.len_norm:
+            # Scaled Average Norm
+            # len_norm_factor = (self.rejected_loss_mask.sum(-1) + self.chosen_loss_mask.sum(-1)) / 2.0
+            # cho_logratios = (cho_logratios * self.chosen_loss_mask).sum(-1) / self.chosen_loss_mask.sum(-1) * len_norm_factor
+            # rej_logratios = (rej_logratios * self.rejected_loss_mask).sum(-1) / self.rejected_loss_mask.sum(-1) * len_norm_factor
+            
+            # RandomKNorm
+            batch_size = cho_logratios.size(0)
+            random_cho_logratios = torch.zeros(batch_size, device=cho_logratios.device)
+            random_rej_logratios = torch.zeros(batch_size, device=rej_logratios.device)
+            for i in range(batch_size):
+                if self.rejected_loss_mask[i].sum(-1) < self.chosen_loss_mask[i].sum(-1):
+                    min_length = self.rejected_loss_mask[i].sum(-1).item()
+                    chosen_indices_1 = torch.multinomial((self.chosen_loss_mask[i] != 0).float(), min_length, replacement=False)
+                    chosen_indices_2 = torch.multinomial((self.chosen_loss_mask[i] != 0).float(), min_length, replacement=False)
+                    random_cho_logratios[i] = (policy_chosen_logps[i] * self.chosen_loss_mask[i])[chosen_indices_1].sum(-1) - \
+                                              (reference_chosen_logps[i] * self.chosen_loss_mask[i])[chosen_indices_2].sum(-1)
+                    random_rej_logratios[i] = (policy_rejected_logps[i] * self.rejected_loss_mask[i]).sum(-1) - \
+                                              (reference_rejected_logps[i] * self.rejected_loss_mask[i]).sum(-1)
+                else:
+                    min_length = self.chosen_loss_mask[i].sum(-1).item()
+                    rejected_indices_1 = torch.multinomial((self.rejected_loss_mask[i] != 0).float(), min_length, replacement=False)
+                    rejected_indices_2 = torch.multinomial((self.rejected_loss_mask[i] != 0).float(), min_length, replacement=False)
+                    random_cho_logratios[i] = (policy_chosen_logps[i] * self.chosen_loss_mask[i]).sum(-1) - \
+                                              (reference_chosen_logps[i] * self.chosen_loss_mask[i]).sum(-1)
+                    random_rej_logratios[i] = (policy_rejected_logps[i] * self.rejected_loss_mask[i])[rejected_indices_1].sum(-1) - \
+                                              (reference_rejected_logps[i] * self.rejected_loss_mask[i])[rejected_indices_2].sum(-1)
+            cho_logratios = random_cho_logratios
+            rej_logratios = random_rej_logratios
+            del random_cho_logratios
+            del random_rej_logratios
+        else:
+            cho_logratios = (cho_logratios * self.chosen_loss_mask).sum(-1)
+            rej_logratios = (rej_logratios * self.rejected_loss_mask).sum(-1)
+
+        cho_logratios = cho_logratios.to(self.accelerator.device)
+        rej_logratios = rej_logratios.to(self.accelerator.device)
+        logits = cho_logratios - rej_logratios
+
+        policy_chosen_logps = (policy_chosen_logps * self.chosen_loss_mask).sum(-1)
+        policy_rejected_logps = (policy_rejected_logps * self.rejected_loss_mask).sum(-1)
+        reference_chosen_logps = (reference_chosen_logps * self.chosen_loss_mask).sum(-1)
+        reference_rejected_logps = (reference_rejected_logps * self.rejected_loss_mask).sum(-1)
 
         # The beta is a temperature parameter for the DPO loss, typically something in the range of 0.1 to 0.5.
         # We ignore the reference model as beta -> 0. The label_smoothing parameter encodes our uncertainty about the labels and
@@ -997,8 +1037,7 @@ class DPOTrainer(Trainer):
         logits: torch.FloatTensor,
         labels: torch.LongTensor,
         label_pad_token_id: int = -100,
-        is_encoder_decoder: bool = False,
-        len_norm: bool = False
+        is_encoder_decoder: bool = False
     ) -> torch.FloatTensor:
         """Compute the log probabilities of the given labels under the given logits.
 
@@ -1020,37 +1059,9 @@ class DPOTrainer(Trainer):
         # dummy token; we'll ignore the losses on these tokens later
         labels[labels == label_pad_token_id] = 0
 
-        if not len_norm:
-            # DPO's biased operation
-            per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
-            total_logps = (per_token_logps * loss_mask).sum(-1)
-        else:
-            # SamPO length debiasing operation
-            batch_size, seq_len, vocab_size = logits.size()
-            total_logps = torch.zeros(batch_size, device=logits.device)
+        per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
 
-            for batch_idx in range(batch_size // 2):
-                chosen_valid_indices = loss_mask[batch_idx].nonzero(as_tuple=True)[0]  # (chosen_seq_len)
-                rejected_valid_indices = loss_mask[batch_idx + batch_size // 2].nonzero(as_tuple=True)[0]  # (rejected_seq_len)
-
-                if chosen_valid_indices.size(0) < rejected_valid_indices.size(0):
-                    min_length = chosen_valid_indices.size(0)  # min len of chosen and rejected
-                    rejected_valid_indices = torch.multinomial(loss_mask[batch_idx + batch_size // 2].float(), min_length, replacement=False)
-                else:
-                    min_length = rejected_valid_indices.size(0)
-                    chosen_valid_indices = torch.multinomial(loss_mask[batch_idx].float(), min_length, replacement=False)
-
-                chosen_valid_logits = logits[batch_idx, chosen_valid_indices]  # (min_seq_len, vocab_size)
-                chosen_valid_labels = labels[batch_idx, chosen_valid_indices]  # (min_seq_len)
-                rejected_valid_logits = logits[batch_idx + batch_size // 2, rejected_valid_indices]  # (min_seq_len, vocab_size)
-                rejected_valid_labels = labels[batch_idx + batch_size // 2, rejected_valid_indices]  # (min_seq_len)
-
-                chosen_per_token_logps = torch.gather(chosen_valid_logits.log_softmax(-1), dim=1, index=chosen_valid_labels.unsqueeze(1)).squeeze(1)
-                rejected_per_token_logps = torch.gather(rejected_valid_logits.log_softmax(-1), dim=1, index=rejected_valid_labels.unsqueeze(1)).squeeze(1)
-                total_logps[batch_idx] += chosen_per_token_logps.sum()
-                total_logps[batch_idx + batch_size // 2] += rejected_per_token_logps.sum()
-
-        return total_logps, loss_mask
+        return per_token_logps, loss_mask
 
     @staticmethod
     def tdpo_get_batch_logps(
@@ -1130,8 +1141,7 @@ class DPOTrainer(Trainer):
             all_logits,
             concatenated_batch["concatenated_labels"],
             is_encoder_decoder=self.is_encoder_decoder,
-            label_pad_token_id=self.label_pad_token_id,
-            len_norm=self.len_norm
+            label_pad_token_id=self.label_pad_token_id
         )
 
         if self.loss_type == "ipo":
@@ -1274,8 +1284,8 @@ class DPOTrainer(Trainer):
         metrics[f"{prefix}rewards/accuracies"] = reward_accuracies.mean().cpu()
         metrics[f"{prefix}rewards/margins"] = (chosen_rewards - rejected_rewards).mean().cpu()
         if self.loss_type != "tdpo":
-            metrics[f"{prefix}logps/rejected"] = policy_rejected_logps.detach().mean().cpu()
-            metrics[f"{prefix}logps/chosen"] = policy_chosen_logps.sum(-1).detach().mean().cpu()
+            metrics[f"{prefix}logps/rejected"] = (policy_rejected_logps * self.rejected_loss_mask).sum(-1).detach().mean().cpu()
+            metrics[f"{prefix}logps/chosen"] = (policy_chosen_logps * self.chosen_loss_mask).sum(-1).detach().mean().cpu()
             metrics[f"{prefix}logits/rejected"] = policy_rejected_logits.detach().mean().cpu()
             metrics[f"{prefix}logits/chosen"] = policy_chosen_logits.detach().mean().cpu()
 

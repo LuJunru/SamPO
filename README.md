@@ -23,7 +23,7 @@ For five conditional benchmarks, we use [lm-evaluation-harness](https://github.c
 - TruthfulQA: 3-shot, report accuracy of single-true mc1 setting
 
 For AlpacaEval2, we use [official alpaca_eval](https://github.com/tatsu-lab/alpaca_eval):
-- AlpacaEval2: win rate (%) judged by GPT-4-turbo between the model's outputs vs. the GPT-4-turbo's response
+- AlpacaEval2: win rate (%)
 - LC AlpacaEval2: length-debiased win rate (%) of AlpacaEval2
 
 For HH-RLHF & TL;DR, we use the same GPT-4 Win rate prompt template proposed by the [DPO](https://arxiv.org/abs/2305.18290): 

@@ -898,7 +898,7 @@ class DPOTrainer(Trainer):
         elif self.loss_type == "mix":
             # hybrid dpo+sft: https://github.com/eric-mitchell/direct-preference-optimization/issues/35#issuecomment-1705906371
             losses = (
-                -F.logsigmoid(self.beta * logits) - self.sft_lambda * policy_chosen_logps / self.chosen_loss_mask.sum(-1)
+                -F.logsigmoid(self.beta * logits) - self.sft_lambda * self.policy_chosen_logps / self.chosen_loss_mask.sum(-1)
             )
         elif self.loss_type == "lenN":
             # length-normalized DPO: https://arxiv.org/abs/2403.19159
@@ -998,7 +998,8 @@ class DPOTrainer(Trainer):
         labels: torch.LongTensor,
         label_pad_token_id: int = -100,
         is_encoder_decoder: bool = False,
-        len_norm: bool = False
+        len_norm: bool = False,
+        loss_type: str = "sigmoid"
     ) -> torch.FloatTensor:
         """Compute the log probabilities of the given labels under the given logits.
 
@@ -1024,14 +1025,19 @@ class DPOTrainer(Trainer):
             # DPO's biased operation
             per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
             total_logps = (per_token_logps * loss_mask).sum(-1)
+            chosen_logps_sft = total_logps[:(logits.size(0) // 2)]
         else:
             # SamPO length debiasing operation
             batch_size, seq_len, vocab_size = logits.size()
             total_logps = torch.zeros(batch_size, device=logits.device)
+            chosen_logps_sft = torch.zeros(batch_size // 2, device=logits.device)
 
             for batch_idx in range(batch_size // 2):
                 chosen_valid_indices = loss_mask[batch_idx].nonzero(as_tuple=True)[0]  # (chosen_seq_len)
                 rejected_valid_indices = loss_mask[batch_idx + batch_size // 2].nonzero(as_tuple=True)[0]  # (rejected_seq_len)
+
+                if loss_type == "mix":
+                    chosen_logps_sft[batch_idx] = torch.gather(logits[batch_idx, chosen_valid_indices].log_softmax(-1), dim=1, index=labels[batch_idx, chosen_valid_indices].unsqueeze(1)).squeeze(1)
 
                 if chosen_valid_indices.size(0) < rejected_valid_indices.size(0):
                     min_length = chosen_valid_indices.size(0)  # min len of chosen and rejected
@@ -1050,7 +1056,7 @@ class DPOTrainer(Trainer):
                 total_logps[batch_idx] += chosen_per_token_logps.sum()
                 total_logps[batch_idx + batch_size // 2] += rejected_per_token_logps.sum()
 
-        return total_logps, loss_mask
+        return total_logps, chosen_logps_sft, loss_mask
 
     @staticmethod
     def tdpo_get_batch_logps(
@@ -1126,12 +1132,13 @@ class DPOTrainer(Trainer):
             **model_kwargs,
         ).logits
 
-        all_logps, all_loss_mask = self.get_batch_logps(
+        all_logps, chosen_logps_sft, all_loss_mask = self.get_batch_logps(
             all_logits,
             concatenated_batch["concatenated_labels"],
             is_encoder_decoder=self.is_encoder_decoder,
             label_pad_token_id=self.label_pad_token_id,
-            len_norm=self.len_norm
+            len_norm=self.len_norm,
+            loss_type=self.loss_type
         )
 
         if self.loss_type == "ipo":
@@ -1149,6 +1156,7 @@ class DPOTrainer(Trainer):
         if keep_org_logps:
             self.chosen_loss_mask = chosen_loss_mask
             self.rejected_loss_mask = rejected_loss_mask
+            self.policy_chosen_logps = chosen_logps_sft
 
         return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 

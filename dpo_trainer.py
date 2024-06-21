@@ -855,37 +855,25 @@ class DPOTrainer(Trainer):
         if self.len_norm:
             # Scaled Average Norm
             # len_norm_factor = (self.rejected_loss_mask.sum(-1) + self.chosen_loss_mask.sum(-1)) / 2.0
-            # cho_logratios = (cho_logratios * self.chosen_loss_mask).sum(-1) / self.chosen_loss_mask.sum(-1) * len_norm_factor
-            # rej_logratios = (rej_logratios * self.rejected_loss_mask).sum(-1) / self.rejected_loss_mask.sum(-1) * len_norm_factor
+            # cho_logratios = cho_logratios / self.chosen_loss_mask.sum(-1) * len_norm_factor
+            # rej_logratios = rej_logratios / self.rejected_loss_mask.sum(-1) * len_norm_factor
             
             # RandomKNorm
             batch_size = cho_logratios.size(0)
-            random_cho_logratios = torch.zeros(batch_size, device=cho_logratios.device)
-            random_rej_logratios = torch.zeros(batch_size, device=rej_logratios.device)
             for i in range(batch_size):
                 if self.rejected_loss_mask[i].sum(-1) < self.chosen_loss_mask[i].sum(-1):
                     min_length = self.rejected_loss_mask[i].sum(-1).item()
                     chosen_indices_1 = torch.multinomial((self.chosen_loss_mask[i] != 0).float(), min_length, replacement=False)
                     chosen_indices_2 = torch.multinomial((self.chosen_loss_mask[i] != 0).float(), min_length, replacement=False)
-                    random_cho_logratios[i] = (policy_chosen_logps[i] * self.chosen_loss_mask[i])[chosen_indices_1].sum(-1) - \
-                                              (reference_chosen_logps[i] * self.chosen_loss_mask[i])[chosen_indices_2].sum(-1)
-                    random_rej_logratios[i] = (policy_rejected_logps[i] * self.rejected_loss_mask[i]).sum(-1) - \
-                                              (reference_rejected_logps[i] * self.rejected_loss_mask[i]).sum(-1)
+                    cho_logratios[i] = policy_chosen_logps[i][chosen_indices_1] - reference_chosen_logps[i][chosen_indices_2]
                 else:
                     min_length = self.chosen_loss_mask[i].sum(-1).item()
                     rejected_indices_1 = torch.multinomial((self.rejected_loss_mask[i] != 0).float(), min_length, replacement=False)
                     rejected_indices_2 = torch.multinomial((self.rejected_loss_mask[i] != 0).float(), min_length, replacement=False)
-                    random_cho_logratios[i] = (policy_chosen_logps[i] * self.chosen_loss_mask[i]).sum(-1) - \
-                                              (reference_chosen_logps[i] * self.chosen_loss_mask[i]).sum(-1)
-                    random_rej_logratios[i] = (policy_rejected_logps[i] * self.rejected_loss_mask[i])[rejected_indices_1].sum(-1) - \
-                                              (reference_rejected_logps[i] * self.rejected_loss_mask[i])[rejected_indices_2].sum(-1)
-            cho_logratios = random_cho_logratios
-            rej_logratios = random_rej_logratios
-            del random_cho_logratios
-            del random_rej_logratios
-        else:
-            cho_logratios = (cho_logratios * self.chosen_loss_mask).sum(-1)
-            rej_logratios = (rej_logratios * self.rejected_loss_mask).sum(-1)
+                    rej_logratios[i] = policy_rejected_logps[i][rejected_indices_1] - reference_rejected_logps[i][rejected_indices_2]
+        
+        cho_logratios = (cho_logratios * self.chosen_loss_mask).sum(-1)
+        rej_logratios = (rej_logratios * self.rejected_loss_mask).sum(-1)
 
         cho_logratios = cho_logratios.to(self.accelerator.device)
         rej_logratios = rej_logratios.to(self.accelerator.device)

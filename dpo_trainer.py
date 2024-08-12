@@ -1056,6 +1056,27 @@ class DPOTrainer(Trainer):
                 total_logps[batch_idx] += chosen_per_token_logps.sum()
                 total_logps[batch_idx + batch_size // 2] += rejected_per_token_logps.sum()
 
+            # Use averaging instead of sampling
+            # for batch_idx in range(batch_size // 2):
+            #     chosen_valid_indices = loss_mask[batch_idx].nonzero(as_tuple=True)[0]  # (chosen_seq_len)
+            #     rejected_valid_indices = loss_mask[batch_idx + batch_size // 2].nonzero(as_tuple=True)[0]  # (rejected_seq_len)
+
+            #     len_norm_factor = (chosen_valid_indices.size(0) + rejected_valid_indices.size(0)) / 2.0
+
+            #     chosen_valid_logits = logits[batch_idx, chosen_valid_indices]  # (min_seq_len, vocab_size)
+            #     chosen_valid_labels = labels[batch_idx, chosen_valid_indices]  # (min_seq_len)
+            #     rejected_valid_logits = logits[batch_idx + batch_size // 2, rejected_valid_indices]  # (min_seq_len, vocab_size)
+            #     rejected_valid_labels = labels[batch_idx + batch_size // 2, rejected_valid_indices]  # (min_seq_len)
+
+            #     total_logps[batch_idx] = block_logps_compute(chosen_valid_logits, chosen_valid_labels)
+            #     total_logps[batch_idx + batch_size // 2] = block_logps_compute(rejected_valid_logits, rejected_valid_labels)
+
+            #     if loss_type == "mix":
+            #         total_logps_chosen_sft[batch_idx].copy_(total_logps[batch_idx])
+
+            #     total_logps[batch_idx] = total_logps[batch_idx] / chosen_valid_indices.size(0) * len_norm_factor
+            #     total_logps[batch_idx + batch_size // 2] = total_logps[batch_idx + batch_size // 2] / rejected_valid_indices.size(0) * len_norm_factor
+
         return total_logps, chosen_logps_sft, loss_mask
 
     @staticmethod

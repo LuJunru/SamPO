@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Eliminating Biased Length Reliance of Direct Preference Optimization via Down-Sampled KL Divergence">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eliminating Biased Length Reliance of Direct Preference Optimization via Down-Sampled KL Divergence</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-2 publication-title">Eliminating Biased Length Reliance of Direct Preference Optimization via Down-Sampled KL Divergence</h1>
+
+          <section class="hero teaser">
+            <div class="container is-max-desktop">
+              <div class="hero-body">
+                <img src="./static/images/introduction.png"
+                         class="interpolation-image"
+                         alt="Introduction Image"/>
+              </div>
+            </div>
+          </section>
+
+
+          Siyu An3, Meng Zhao3, Yulan He1,2,4, Di Yin3, Xing Sun3
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Junru Lu<sup>1,*</sup>,</span>
+            <span class="author-block">
+              Jiazheng Li<sup>2,*</sup>,</span>
+            <span class="author-block">
+              Siyu An<sup>3</sup>,</span>
+            <span class="author-block">
+              Meng Zhao<sup>3</sup>,</span>
+            <span class="author-block">
+              Yulan He<sup>1,2,4</sup>,</span>
+            <span class="author-block">
+              Di Yin<sup>3</sup>,</span>
+            <span class="author-block">
+              Xing Sun<sup>3</sup></span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>University of Warwick,</span>
+            <span class="author-block"><sup>2</sup>King’s College London,</span>
+            <span class="author-block"><sup>3</sup>Tencent YouTu Lab,</span>
+            <span class="author-block"><sup>4</sup>The Alan Turing Institute</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2406.10957"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- <span class="link-block">
+                <a href="https://arxiv.org/abs/2011.12948"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span> -->
+              <!-- Video Link. -->
+              <!-- <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=MrKrnHhk8IA"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span> -->
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/LuJunru/SamPO/"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- Dataset Link. -->
+              <span class="link-block">
+                <a href="https://huggingface.co/collections/jiazhengli/sampo-670bcae0ce59b1578bd72de6"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>HuggingFace</span>
+                  </a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Direct Preference Optimization (DPO) has emerged as a prominent algorithm for the direct and robust alignment of Large Language Models (LLMs) with human preferences, offering a more straightforward alternative to the complex Reinforcement Learning from Human Feedback (RLHF). Despite its promising efficacy, DPO faces a notable drawback: verbosity, a common over-optimization phenomenon also observed in RLHF.
+          </p>
+          <p>
+            While previous studies mainly attributed verbosity to biased labels within the data, we propose that the issue also stems from an inherent algorithmic length reliance in DPO. Specifically, we suggest that the discrepancy between sequence-level Kullback–Leibler (KL) divergences between chosen and rejected sequences, used in DPO, results in overestimated or underestimated rewards due to varying token lengths.
+          </p>
+          <p>
+            Empirically, we utilize datasets with different label lengths to demonstrate the presence of biased rewards. We then introduce an effective downsampling approach, named SamPO, to eliminate potential length reliance. Our experimental evaluations, conducted across three LLMs of varying scales and a diverse array of conditional and open-ended benchmarks, highlight the efficacy of SamPO in mitigating verbosity, achieving improvements of 5% to 12% over DPO through debaised reward.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Concurrent Work. -->
+    <div class="columns is-centered">
+      <section class="hero teaser">
+        <div class="container is-max-desktop">
+          <div class="hero-body">
+            <img src="./static/images/rewards.png"
+                     class="interpolation-image"
+                     alt="Introduction Image"/>
+          </div>
+        </div>
+      </section>
+    </div>
+    <!--/ Concurrent Work. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@misc{lu2024eliminatingbiasedlengthreliance,
+      title={Eliminating Biased Length Reliance of Direct Preference Optimization via Down-Sampled KL Divergence}, 
+      author={Junru Lu and Jiazheng Li and Siyu An and Meng Zhao and Yulan He and Di Yin and Xing Sun},
+      year={2024},
+      eprint={2406.10957},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2406.10957}, 
+}</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+            <p>
+                This website is borrowed from <a href="https://nerfies.github.io/">Nerfies</a> and licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons
+                  Attribution-ShareAlike 4.0 International License</a>.
+              </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -80,15 +80,6 @@
                   <span>Paper</span>
                 </a>
               </span>
-              <!-- <span class="link-block">
-                <a href="https://arxiv.org/abs/2011.12948"
-                   class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                      <i class="ai ai-arxiv"></i>
-                  </span>
-                  <span>arXiv</span>
-                </a>
-              </span> -->
               <!-- Video Link. -->
               <!-- <span class="link-block">
                 <a href="https://www.youtube.com/watch?v=MrKrnHhk8IA"
@@ -108,6 +99,15 @@
                   </span>
                   <span>Code</span>
                   </a>
+              </span>
+              <span class="link-block">
+                <a href="./static/SamPO-Poster.pdf"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Poster</span>
+                </a>
               </span>
               <!-- Dataset Link. -->
               <span class="link-block">
@@ -148,23 +148,42 @@
       </div>
     </div>
     <!--/ Abstract. -->
+
+        <!-- Paper video. -->
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Video</h2>
+            <div class="publication-video">
+              <iframe src="https://www.youtube.com/embed/FYU1eLi8JVY?si=F6mwHfHtplw9d13h" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            </div>
+          </div>
+        </div>
+        <!--/ Paper video. -->
   </div>
 </section>
 
 
 <section class="section">
   <div class="container is-max-desktop">
-    <!-- Concurrent Work. -->
+    <!-- Animation. -->
     <div class="columns is-centered">
-      <section class="hero teaser">
-        <div class="container is-max-desktop">
-          <div class="hero-body">
-            <img src="./static/images/rewards.png"
-                     class="interpolation-image"
-                     alt="Introduction Image"/>
+      <div class="column is-full-width">
+        <!-- Interpolating. -->
+        <h3 class="title is-4">Analysis of Reward at token-level</h3>
+        <section class="hero teaser">
+          <div class="container is-max-desktop">
+            <div class="hero-body">
+              <img src="./static/images/rewards.png"
+                       class="interpolation-image"
+                       alt="Introduction Image"/>
+            </div>
           </div>
+        </section>
+        <div class="content has-text-justified">
+          <p>
+            The disparity in pairwise responses, illustrated by typical examples, forces DPO to overestimate or underestimate the actual rewards. <a href="https://github.com/LuJunru/SamPO/blob/main/dpo_trainer.py#L1023-L1051">Check out the key difference between SamPO and DPO.</a>
+          </p>
         </div>
-      </section>
     </div>
     <!--/ Concurrent Work. -->
 
